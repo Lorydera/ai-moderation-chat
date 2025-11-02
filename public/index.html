@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Moderation Chat</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f3f4f6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      color: #2563eb;
+      margin: 20px 0;
+    }
+
+    #chatBox {
+      width: 90%;
+      max-width: 600px;
+      flex: 1;
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 15px;
+      scroll-behavior: smooth;
+    }
+
+    .message {
+      margin: 10px 0;
+      padding: 10px 14px;
+      border-radius: 12px;
+      max-width: 80%;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      line-height: 1.4;
+    }
+
+    .user {
+      background: #2563eb;
+      color: white;
+      align-self: flex-end;
+      margin-left: auto;
+    }
+
+    .bot {
+      background: #e5e7eb;
+      color: #111827;
+      align-self: flex-start;
+    }
+
+    #inputArea {
+      display: flex;
+      width: 90%;
+      max-width: 600px;
+      margin-bottom: 20px;
+    }
+
+    textarea {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      resize: none;
+      font-size: 16px;
+    }
+
+    button {
+      margin-left: 8px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background: #1e4ed8;
+    }
+
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Moderation Chat</h1>
+
+  <div id="chatBox"></div>
+
+  <div id="inputArea">
+    <textarea id="userInput" placeholder="Type your message..."></textarea>
+    <button id="sendBtn">Send</button>
+  </div>
+
+  <script>
+    const bannedWords = ["kill", "hack", "bomb"];
+    const chatBox = document.getElementById("chatBox");
+    const input = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+
+    function addMessage(text, sender) {
+      const msg = document.createElement("div");
+      msg.classList.add("message", sender);
+      msg.textContent = text;
+      chatBox.appendChild(msg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Input moderation
+      if (bannedWords.some(word => text.toLowerCase().includes(word))) {
+        addMessage("❌ Message violated moderation policy.", "bot");
+        input.value = "";
+        return;
+      }
+
+      addMessage(text, "user");
+      input.value = "";
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: text }),
+        });
+
+        const data = await response.json();
+        let aiResponse = data.response || "No response received.";
+
+        // Output moderation
+        bannedWords.forEach(word => {
+          const regex = new RegExp(word, "gi");
+          aiResponse = aiResponse.replace(regex, "[REDACTED]");
+        });
+
+        addMessage(aiResponse, "bot");
+      } catch (error) {
+        console.error(error);
+        addMessage("❌ Something went wrong. Please try again.", "bot");
+      }
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>
